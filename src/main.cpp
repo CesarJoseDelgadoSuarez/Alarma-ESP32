@@ -48,14 +48,26 @@ bool alarmaOn = false;  // Variable que indica si la alarma esta conectada o no
 bool awayOn = false;    // Variable que indica si la alarma esta conectada en AWAY
 bool stayOn = false;    // Variable que indica si la alarma esta conectada en STAY
 bool passCorrecta=false;
-
+bool sistemaOk = true;
+bool sistemaEstabaOk=true;
 //bool sensores
 bool sensor24hDisparado = false;
+
+
+bool sensor2DisparadoAlarmaOff = false;
+bool sensor3DisparadoAlarmaOff = false;
+bool sensor4DisparadoAlarmaOff = false;
+bool sensor5DisparadoAlarmaOff = false;
+bool sensor6DisparadoAlarmaOff = false;
+bool sensor7DisparadoAlarmaOff = false;
+bool sensor8DisparadoAlarmaOff = false;
+
+
 // Variables de tiempo
 unsigned long tiempoCuentaAtrasSalidaSegundos = 5;  // Variable que indica el tiempo para salir del domicilio tras conectar la alarma
 
 // Metodo -> Imprimir mensaje de alarma conectada
-void imprimirMensajeAlarmaconectada(String m,int fila, int columna){
+void imprimirMensajeLCD(String m,int fila, int columna){
   lcd.setCursor(columna,fila);
   lcd.print("                    ");
   lcd.setCursor(columna,fila);
@@ -90,13 +102,9 @@ void encenderAlarma(){
     m = "     Alarma STAY     ";
   }
   
-  imprimirMensajeAlarmaconectada(m,0,0);
+  imprimirMensajeLCD(m,0,0);
 }
 
-// Metodo -> Enciende la alarma tras ser activado el sensor 24h
-void encenderAlarma24HPresionado(){
-
-}
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 24h
 void sensor24hPresionado() // FUNCION PARA H24
 {
@@ -104,7 +112,6 @@ void sensor24hPresionado() // FUNCION PARA H24
   alarmaOn = true;
   awayOn = true;
   stayOn = true;
-  encenderAlarma24HPresionado();
   ledsOn();
 
 }
@@ -112,36 +119,63 @@ void sensor24hPresionado() // FUNCION PARA H24
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 2
 void sensor2Presionado()
 {
-
+  if (!alarmaOn)
+  {
+    sensor2DisparadoAlarmaOff=true;
+  }
+  
 }
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 3
 void sensor3Presionado()
 {
-
+  if (!alarmaOn)
+  {
+    sensor3DisparadoAlarmaOff=true;
+  }
+  
 }
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 4
 void sensor4Presionado()
 {
-
+  if (!alarmaOn)
+  {
+    sensor4DisparadoAlarmaOff=true;
+  }
+  
 }
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 5
 void sensor5Presionado()
 {
-
+  if (!alarmaOn)
+  {
+    sensor5DisparadoAlarmaOff=true;
+  }
+  
 }
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 6
 void sensor6Presionado()
 {
-
+  if (!alarmaOn)
+  {
+    sensor6DisparadoAlarmaOff=true;
+  }
+  
 }
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 7
 void sensor7Presionado()
 {
-
+  if (!alarmaOn)
+  {
+    sensor7DisparadoAlarmaOff=true;
+  }
+  
 }
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 7
 void sensor8Presionado(){
-
+  if (!alarmaOn)
+  {
+    sensor8DisparadoAlarmaOff=true;
+  }
 }
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 8
 void sensor8Secuencia()
@@ -172,10 +206,6 @@ void setupSensores(){
 
   sensor2.begin();
   sensor2.onPressed(sensor2Presionado);
-  if (sensor2.supportsInterrupt())
-  {
-    sensor2.enableInterrupt(interrupcionSensor2);
-  }
   
   sensor3.begin(); 
   sensor3.onPressed(sensor3Presionado); 
@@ -204,6 +234,7 @@ void setupSensores(){
 // Metodo -> inicializa la variable lcd
 void setupLCD(){
   lcd.init();
+  lcd.backlight();
 }
 
 // Meotodo -> inicializa las variables del teclado
@@ -230,8 +261,11 @@ void pantallaInicio(){
 void setupLedsAlarma(){
   pinMode(ledAlarmaOff,OUTPUT);
   pinMode(ledAlarmaOn,OUTPUT);
+  pinMode(ledSirena,OUTPUT);
   digitalWrite(ledAlarmaOff,HIGH);
   digitalWrite(ledAlarmaOn,LOW);
+  digitalWrite(ledSirena,LOW);
+
 }
 
 void setup()
@@ -281,13 +315,6 @@ bool compararPass(){
   return true;
 }
 
-// // Metodo-> resetea la contraseña introducida 
-// bool resetearPass(){
-//   for(int i = 0; i < sizeof(pass)/sizeof(pass[0]);i++){//sizeof() devuelve el numero de bytes total del array. para obtener cuantos elementos hay que dividir los bytes totales / byte de cada elemento
-//     passIntroducida[i] = 0;
-//   }
-//   return true;
-// }
 
 // Metodo -> Apaga la alarma solo si la contraseña se ha introducido correctamente
 void apagarAlarma(){
@@ -315,6 +342,7 @@ void comprobarPass(){
     lcd.print('*');
     if (indicePassIntroducida==4)
     {
+      esperaActiva(500);
       if(!compararPass()){
         Serial.println("Contraseña Incorrecta!!");
         lcd.setCursor(8,1);
@@ -338,7 +366,7 @@ void comprobarPass(){
 
 // Metodo-> realiza la cuenta atras dado un tiempo
 void cuentaAtras(String m, unsigned long tiempoReferencia, int segundosRestantes){
-  imprimirMensajeAlarmaconectada(m,0,0);
+  imprimirMensajeLCD(m,0,0);
   Serial.println(m);
   for (int i = segundosRestantes; i >= 0; i--)
   {
@@ -381,17 +409,158 @@ void revisarBotonesEncendido(){
   
 }
 
-void loop()
-{
-  if(!alarmaOn)
+void verZonasActivasAlarmaOff(){
+  if (!sensor2.isPressed())
   {
-    revisarBotonesEncendido();
-  }else{
-    if (sensor24hDisparado)
+    if (sensor2DisparadoAlarmaOff)
     {
-      imprimirMensajeAlarmaconectada("   Alarma On Away   ",0,0);
+      lcd.setCursor(3,2);
+      lcd.print("Z2");
+    }
+  }else{
+    lcd.setCursor(3,2);
+    lcd.print("  ");
+    sistemaOk = true;
+    sensor2DisparadoAlarmaOff=false;
+  }
+
+  if (!sensor3.isPressed())
+  {
+    if (sensor3DisparadoAlarmaOff)
+    {
+      lcd.setCursor(6,2);
+      lcd.print("Z3");
+    }
+  }else{
+    lcd.setCursor(6,2);
+    lcd.print("  ");
+    sistemaOk = true;
+    sensor3DisparadoAlarmaOff=false;
+  }
+  
+  if (!sensor4.isPressed())
+  {
+    if (sensor4DisparadoAlarmaOff)
+    {
+      lcd.setCursor(9,2);
+      lcd.print("Z4");
+    }
+  }else{
+    lcd.setCursor(9,2);
+    lcd.print("  ");
+    sistemaOk = true;
+    sensor4DisparadoAlarmaOff=false;
+  }
+
+  if (!sensor5.isPressed())
+  {
+    if (sensor5DisparadoAlarmaOff)
+    {
+      lcd.setCursor(12,2);
+      lcd.print("Z5");
+    }
+  }else{
+    lcd.setCursor(12,2);
+    lcd.print("  ");
+    sistemaOk = true;
+    sensor5DisparadoAlarmaOff = false;
+  }
+  
+  if (!sensor6.isPressed())
+  {
+    if (sensor6DisparadoAlarmaOff)
+    {
+      lcd.setCursor(15,2);
+      lcd.print("Z6");
     }
     
+  }else{
+    lcd.setCursor(15,2);
+    lcd.print("  ");
+    sistemaOk = true;
+    sensor6DisparadoAlarmaOff = false;
+  }
+  
+  if (!sensor7.isPressed())
+  {
+    if (sensor7DisparadoAlarmaOff)
+    {
+      lcd.setCursor(18,2);
+      lcd.print("Z7");
+    }
+  }else{
+    lcd.setCursor(18,2);
+    lcd.print("  ");
+    sistemaOk = true;
+    sensor7DisparadoAlarmaOff = false;
+  }
+
+  if (!sensor8.isPressed())
+  {
+    if (sensor8DisparadoAlarmaOff)
+    {
+      lcd.setCursor(9,3);
+      lcd.print("Z8");
+    }
+  }else{
+    lcd.setCursor(9,3);
+    lcd.print("  ");
+    sistemaOk = true;
+    sensor8DisparadoAlarmaOff=false;
+  }
+  
+  if (sensor2.releasedFor(1500) || sensor3.releasedFor(1500) || sensor4.releasedFor(1500) || sensor5.releasedFor(1500) || sensor6.releasedFor(1500) || sensor7.releasedFor(1500) || sensor8.releasedFor(1500))
+  {
+    if(sistemaEstabaOk)imprimirMensajeLCD("Fallo en Sistema",0,0);
+    sistemaEstabaOk=false;
+    sistemaOk = false;
+  }
+
+  
+}
+
+void leerZonas(){
+  sensor2.read();
+  sensor3.read();
+  sensor4.read();
+  sensor5.read();
+  sensor6.read();
+  sensor7.read();
+  sensor8.read();
+}
+
+void revisarZonasStay(){
+  sensor3.read();
+  sensor4.read();
+  sensor5.read();
+}
+
+void revisarZonasAway(){
+  revisarZonasStay();
+  sensor6.read();
+  sensor7.read();
+  sensor8.read();
+}
+
+void revisarSensor2(){
+
+}
+
+void loop()
+{
+  leerZonas();
+  if(!alarmaOn)
+  {
+    verZonasActivasAlarmaOff();
+    if(sistemaOk){
+      revisarBotonesEncendido();
+      if(!sistemaEstabaOk)pantallaInicio();sistemaEstabaOk=true;
+    }
+  }else{
+    if (sensor24hDisparado)imprimirMensajeLCD("   Alarma On Away   ",0,0);
     comprobarPass();
+    if(awayOn)revisarZonasAway();
+    if(stayOn)revisarZonasStay();
+    revisarSensor2();
   }
 }
