@@ -62,10 +62,19 @@ bool sensor6DisparadoAlarmaOff = false;
 bool sensor7DisparadoAlarmaOff = false;
 bool sensor8DisparadoAlarmaOff = false;
 
+bool sensor2DisparadoAlarmaOn = false;
+bool sensor3DisparadoAlarmaOn = false;
+bool sensor4DisparadoAlarmaOn = false;
+bool sensor5DisparadoAlarmaOn = false;
+bool sensor6DisparadoAlarmaOn = false;
+bool sensor7DisparadoAlarmaOn = false;
+bool sensor8DisparadoAlarmaOn = false;
+
+bool mensajeSensor24hDisparado = false;
 
 // Variables de tiempo
 unsigned long tiempoCuentaAtrasSalidaSegundos = 5;  // Variable que indica el tiempo para salir del domicilio tras conectar la alarma
-
+unsigned long sirenaEncendida = false;              // Variable que indica el momento en el que se encendio la sirena
 // Metodo -> Imprimir mensaje de alarma conectada
 void imprimirMensajeLCD(String m,int fila, int columna){
   lcd.setCursor(columna,fila);
@@ -87,6 +96,19 @@ void ledsOff(){
   digitalWrite(ledAlarmaOff,HIGH);
   digitalWrite(ledAlarmaOn,LOW);
 }
+
+
+//Metodo -> Enciende la sirena de la alarma
+void sirenaOn(){
+  digitalWrite(ledSirena,HIGH);
+  sirenaEncendida = millis();
+}
+
+//Metodo -> Apaga la sirena de la alarma
+void sirenaOff(){
+  digitalWrite(ledSirena,LOW);
+}
+
 
 //Metodo -> Enciende la alarma
 void encenderAlarma(){
@@ -113,7 +135,7 @@ void sensor24hPresionado() // FUNCION PARA H24
   awayOn = true;
   stayOn = true;
   ledsOn();
-
+  sirenaOn();
 }
 
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 2
@@ -122,6 +144,8 @@ void sensor2Presionado()
   if (!alarmaOn)
   {
     sensor2DisparadoAlarmaOff=true;
+  }else{
+    sensor2DisparadoAlarmaOn=true;
   }
   
 }
@@ -131,6 +155,9 @@ void sensor3Presionado()
   if (!alarmaOn)
   {
     sensor3DisparadoAlarmaOff=true;
+  }else{
+    sensor3DisparadoAlarmaOn=true;
+    sirenaOn();
   }
   
 }
@@ -140,6 +167,9 @@ void sensor4Presionado()
   if (!alarmaOn)
   {
     sensor4DisparadoAlarmaOff=true;
+  }else{
+    sirenaOn();
+    sensor4DisparadoAlarmaOn=true;
   }
   
 }
@@ -149,6 +179,9 @@ void sensor5Presionado()
   if (!alarmaOn)
   {
     sensor5DisparadoAlarmaOff=true;
+  }else{
+    sirenaOn();
+    sensor5DisparadoAlarmaOn=true;
   }
   
 }
@@ -158,6 +191,9 @@ void sensor6Presionado()
   if (!alarmaOn)
   {
     sensor6DisparadoAlarmaOff=true;
+  }else{
+    sirenaOn();
+    sensor6DisparadoAlarmaOn=true;
   }
   
 }
@@ -167,8 +203,10 @@ void sensor7Presionado()
   if (!alarmaOn)
   {
     sensor7DisparadoAlarmaOff=true;
+  }else{
+    sirenaOn();
+    sensor7DisparadoAlarmaOn = true;
   }
-  
 }
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 7
 void sensor8Presionado(){
@@ -180,7 +218,8 @@ void sensor8Presionado(){
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 8
 void sensor8Secuencia()
 {
-
+  sirenaOn();
+  if(alarmaOn)sensor8DisparadoAlarmaOn=true;
 }
 
 // Metodo -> interrupcion del sensor de 24h
@@ -315,6 +354,15 @@ bool compararPass(){
   return true;
 }
 
+void resetVariablesAlarmaOff(){
+  sensor2DisparadoAlarmaOn = false;
+  sensor3DisparadoAlarmaOn = false;
+  sensor4DisparadoAlarmaOn = false;
+  sensor5DisparadoAlarmaOn = false;
+  sensor6DisparadoAlarmaOn = false;
+  sensor7DisparadoAlarmaOn = false;
+  sensor8DisparadoAlarmaOn = false;
+}
 
 // Metodo -> Apaga la alarma solo si la contraseña se ha introducido correctamente
 void apagarAlarma(){
@@ -324,7 +372,9 @@ void apagarAlarma(){
   passCorrecta=false;
   ledsOff();
   pantallaInicio();
-  //resetearPass();
+  mensajeSensor24hDisparado = false;
+
+  resetVariablesAlarmaOff();
 }
 
 // Metodo-> comprueba si se ha introducido la contraseña
@@ -359,7 +409,7 @@ void comprobarPass(){
       }
     }
     
-    esperaActiva(250);//para evitar rebote
+    esperaActiva(200);//para evitar rebote
 
   }
 }
@@ -404,8 +454,13 @@ void revisarBotonesEncendido(){
     awayOn = false;
     stayOn = true;
     encenderAlarma();
-    
   }
+
+  if (c=='D')//Mostrar zonas disparadas ultima conexion
+  {
+    //Pendiente
+  }
+  
   
 }
 
@@ -519,6 +574,59 @@ void verZonasActivasAlarmaOff(){
   
 }
 
+
+void verZonasActivasAlarmaOn(){
+  if (sensor24hDisparado)
+  {
+    lcd.setCursor(0,2);
+    lcd.print("Z1");
+  }
+
+  if (sensor2DisparadoAlarmaOn)
+  {
+    lcd.setCursor(3,2);
+    lcd.print("Z2");
+  }
+
+  if (sensor3DisparadoAlarmaOn)
+  {
+    
+    lcd.setCursor(6,2);
+    lcd.print("Z3");
+  }
+  
+  if (sensor4DisparadoAlarmaOn)
+  {
+    lcd.setCursor(9,2);
+    lcd.print("Z4");
+  }
+
+  if (sensor5DisparadoAlarmaOn)
+  {
+    lcd.setCursor(12,2);
+    lcd.print("Z5");
+  }
+  
+  if (sensor6DisparadoAlarmaOn)
+  {
+    lcd.setCursor(15,2);
+    lcd.print("Z6");    
+  }
+  
+  if (sensor7DisparadoAlarmaOn)
+  {
+    lcd.setCursor(18,2);
+    lcd.print("Z7");
+  }
+
+  if (sensor8DisparadoAlarmaOn)
+  {
+    lcd.setCursor(9,3);
+    lcd.print("Z8");
+  }
+}
+
+
 void leerZonas(){
   sensor2.read();
   sensor3.read();
@@ -529,21 +637,22 @@ void leerZonas(){
   sensor8.read();
 }
 
-void revisarZonasStay(){
+
+void readZonas(){
   sensor3.read();
   sensor4.read();
   sensor5.read();
+  if (awayOn)
+  {
+    sensor6.read();
+    sensor7.read();
+    sensor8.read();
+  }
 }
 
-void revisarZonasAway(){
-  revisarZonasStay();
-  sensor6.read();
-  sensor7.read();
-  sensor8.read();
-}
-
-void revisarSensor2(){
-
+// Metodo -> Apaga la sirena si lleva un tiempo encendida
+void apagarSirenaSi(){
+  if (millis() - sirenaEncendida >= 5000)sirenaOff();
 }
 
 void loop()
@@ -555,12 +664,16 @@ void loop()
     if(sistemaOk){
       revisarBotonesEncendido();
       if(!sistemaEstabaOk)pantallaInicio();sistemaEstabaOk=true;
+      
     }
   }else{
-    if (sensor24hDisparado)imprimirMensajeLCD("   Alarma On Away   ",0,0);
+    if (sensor24hDisparado && !mensajeSensor24hDisparado){
+      imprimirMensajeLCD("     Alarma AWAY     ",0,0);
+      mensajeSensor24hDisparado = true;
+    }
+    verZonasActivasAlarmaOn();
     comprobarPass();
-    if(awayOn)revisarZonasAway();
-    if(stayOn)revisarZonasStay();
-    revisarSensor2();
+    readZonas();
+    apagarSirenaSi();
   }
 }
