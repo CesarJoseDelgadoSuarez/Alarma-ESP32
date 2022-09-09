@@ -354,6 +354,7 @@ bool compararPass(){
   return true;
 }
 
+//Metodo -> resetea las variables que deben resetearse cuando se apaga la alarma
 void resetVariablesAlarmaOff(){
   sensor2DisparadoAlarmaOn = false;
   sensor3DisparadoAlarmaOn = false;
@@ -438,6 +439,7 @@ void cuentaAtras(String m, unsigned long tiempoReferencia, int segundosRestantes
   }  
 }
 
+// Metodo -> Estando la alarma desconectada mira que botones se pulsan y actua en consecuencia
 void revisarBotonesEncendido(){
   char c = teclado.getChar();
   if (c=='*')//Alarma activada en AWAY
@@ -464,6 +466,7 @@ void revisarBotonesEncendido(){
   
 }
 
+//Metodo -> muestra las zonas activadas cuando la alarma no esta conectada y no deja conectar la alarma mientras hayan zonas activas mas de un tiempo x
 void verZonasActivasAlarmaOff(){
   if (!sensor2.isPressed())
   {
@@ -574,7 +577,7 @@ void verZonasActivasAlarmaOff(){
   
 }
 
-
+// Metodo -> muestra las zonas activadas cuando la alarma esta conectada
 void verZonasActivasAlarmaOn(){
   if (sensor24hDisparado)
   {
@@ -626,7 +629,7 @@ void verZonasActivasAlarmaOn(){
   }
 }
 
-
+// Metodo -> lee las zonas estando la alarma desconectada
 void leerZonas(){
   sensor2.read();
   sensor3.read();
@@ -637,7 +640,7 @@ void leerZonas(){
   sensor8.read();
 }
 
-
+//Metodo -> lee las zonas correspondientes dependiendo del modo de la alarma STAY/AWAY
 void readZonas(){
   sensor3.read();
   sensor4.read();
@@ -657,9 +660,9 @@ void apagarSirenaSi(){
 
 void loop()
 {
-  leerZonas();
   if(!alarmaOn)
   {
+    leerZonas();
     verZonasActivasAlarmaOff();
     if(sistemaOk){
       revisarBotonesEncendido();
