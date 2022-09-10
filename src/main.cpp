@@ -75,6 +75,7 @@ bool mensajeSensor24hDisparado = false;
 // Variables de tiempo
 unsigned long tiempoCuentaAtrasSalidaSegundos = 5;  // Variable que indica el tiempo para salir del domicilio tras conectar la alarma
 unsigned long sirenaEncendida = false;              // Variable que indica el momento en el que se encendio la sirena
+
 // Metodo -> Imprimir mensaje de alarma conectada
 void imprimirMensajeLCD(String m,int fila, int columna){
   lcd.setCursor(columna,fila);
@@ -642,6 +643,7 @@ void leerZonas(){
 
 //Metodo -> lee las zonas correspondientes dependiendo del modo de la alarma STAY/AWAY
 void readZonas(){
+  sensor2.read();
   sensor3.read();
   sensor4.read();
   sensor5.read();
@@ -674,9 +676,10 @@ void loop()
       imprimirMensajeLCD("     Alarma AWAY     ",0,0);
       mensajeSensor24hDisparado = true;
     }
+    readZonas();
+    zonasRetardo();
     verZonasActivasAlarmaOn();
     comprobarPass();
-    readZonas();
     apagarSirenaSi();
   }
 }
