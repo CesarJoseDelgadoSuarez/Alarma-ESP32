@@ -50,6 +50,8 @@ bool stayOn = false;    // Variable que indica si la alarma esta conectada en ST
 bool passCorrecta=false;
 bool sistemaOk = true;
 bool sistemaEstabaOk=true;
+bool sirenaDisparada = false;
+
 //bool sensores
 bool sensor24hDisparado = false;
 
@@ -103,6 +105,7 @@ void ledsOff(){
 void sirenaOn(){
   digitalWrite(ledSirena,HIGH);
   sirenaEncendida = millis();
+  sirenaDisparada = true;
 }
 
 //Metodo -> Apaga la sirena de la alarma
@@ -114,6 +117,7 @@ void sirenaOff(){
 //Metodo -> Enciende la alarma
 void encenderAlarma(){
   alarmaOn=true;
+  passCorrecta = false;
   //LEDS ON
   ledsOn();
   Serial.println("Encender Alarma()");
@@ -357,6 +361,7 @@ bool compararPass(){
 
 //Metodo -> resetea las variables que deben resetearse cuando se apaga la alarma
 void resetVariablesAlarmaOff(){
+  sensor24hDisparado = false;
   sensor2DisparadoAlarmaOn = false;
   sensor3DisparadoAlarmaOn = false;
   sensor4DisparadoAlarmaOn = false;
@@ -371,11 +376,10 @@ void apagarAlarma(){
   alarmaOn=false;
   awayOn=false;
   stayOn=false;
-  passCorrecta=false;
   ledsOff();
   pantallaInicio();
   mensajeSensor24hDisparado = false;
-
+  sirenaDisparada=false;
   resetVariablesAlarmaOff();
 }
 
@@ -427,7 +431,8 @@ void cuentaAtras(String m, unsigned long tiempoReferencia, int segundosRestantes
     };
     if (passCorrecta)break;
     
-    Serial.println(i);
+    lcd.setCursor(17,0);
+    lcd.print("   ");
     lcd.setCursor(17,0);
     lcd.print(i);
     tiempoReferencia = millis();
@@ -436,7 +441,6 @@ void cuentaAtras(String m, unsigned long tiempoReferencia, int segundosRestantes
   while (millis() - tiempoReferencia <= 1000){
     comprobarPass();
     if (!passCorrecta)break;
-    
   }  
 }
 
@@ -660,6 +664,26 @@ void apagarSirenaSi(){
   if (millis() - sirenaEncendida >= 5000)sirenaOff();
 }
 
+//Metodo -> En caso de que se active el sensor 2(Zona con retardo) da una cuenta atras
+void zonasRetardo(){
+  if(sensor2DisparadoAlarmaOn && alarmaOn){
+    if (!sirenaDisparada)
+    {
+      cuentaAtras("  Cuenta Atras:     ",millis(),10);
+    }
+    if (!passCorrecta)
+    {
+      sirenaOn();
+    }
+    if (awayOn)imprimirMensajeLCD("     Alarma AWAY     ",0,0);
+    if (stayOn)imprimirMensajeLCD("     Alarma STAY     ",0,0);
+    
+    
+    sensor2DisparadoAlarmaOn = false;
+  }
+}
+
+
 void loop()
 {
   if(!alarmaOn)
@@ -677,8 +701,8 @@ void loop()
       mensajeSensor24hDisparado = true;
     }
     readZonas();
-    zonasRetardo();
     verZonasActivasAlarmaOn();
+    if(alarmaOn)zonasRetardo();
     comprobarPass();
     apagarSirenaSi();
   }
