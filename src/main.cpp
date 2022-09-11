@@ -13,7 +13,9 @@ LiquidCrystal_I2C lcd(0x27,20,4);  // set the LCD address to 0x27 for a 16 chars
 //TECLADO
 const uint8_t direccionTeclado = 0x20;
 I2CKeyPad teclado(direccionTeclado);
-char mapaTeclado[19] = "DCBA#9630852*741NF";  // N = NoKey, F = Fail
+
+//NOTA: CAMBIAR DEL 1 A LA D SEGUN LA DISPOSICION DEL TECLADO A USAR
+char mapaTeclado[19] = "123A456B789D*0#DNF";  // N = NoKey, F = Fail 
 
 int disparosZonas[] = {0,0,0,0,0,0,0,0};
 
