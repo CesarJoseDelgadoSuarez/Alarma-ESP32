@@ -12,6 +12,8 @@ const uint8_t direccionTeclado = 0x20;
 I2CKeyPad teclado(direccionTeclado);
 char mapaTeclado[19] = "DCBA#9630852*741NF";  // N = NoKey, F = Fail
 
+int disparosZonas[] = {0,0,0,0,0,0,0,0};
+
 //contraseña
 int pass[] ={1,2,3,4};
 int passIntroducida[]={0,0,0,0};
@@ -74,8 +76,12 @@ bool sensor8DisparadoAlarmaOn = false;
 
 bool mensajeSensor24hDisparado = false;
 
+bool luzFondoEncendida = false;// Variable que indica si la luz lcd esta encendida o apagada. False si la luz esta apagada
+
 // Variables de tiempo
 unsigned long tiempoCuentaAtrasSalidaSegundos = 5;  // Variable que indica el tiempo para salir del domicilio tras conectar la alarma
+unsigned long tiempoLuzfondoLCD = 10000;  // Variable que indica el tiempo para salir del domicilio tras conectar la alarma
+unsigned long momentoLuzfondoLCDEncendida;  // Variable que indica el tiempo para salir del domicilio tras conectar la alarma
 unsigned long sirenaEncendida = false;              // Variable que indica el momento en el que se encendio la sirena
 
 // Metodo -> Imprimir mensaje de alarma conectada
@@ -113,6 +119,12 @@ void sirenaOff(){
   digitalWrite(ledSirena,LOW);
 }
 
+//Metodo -> Resetea los disparos de las distintas zonas
+void resetDisparos(){
+  for(int i = 0 ; i < sizeof(disparosZonas)/sizeof(disparosZonas[0]);i++){
+    disparosZonas[i] = 0;
+  }
+}
 
 //Metodo -> Enciende la alarma
 void encenderAlarma(){
@@ -120,6 +132,7 @@ void encenderAlarma(){
   passCorrecta = false;
   //LEDS ON
   ledsOn();
+  resetDisparos();
   Serial.println("Encender Alarma()");
   String m;
   if (awayOn)
@@ -141,6 +154,7 @@ void sensor24hPresionado() // FUNCION PARA H24
   stayOn = true;
   ledsOn();
   sirenaOn();
+  disparosZonas[0]++;
 }
 
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 2
@@ -163,6 +177,7 @@ void sensor3Presionado()
   }else{
     sensor3DisparadoAlarmaOn=true;
     sirenaOn();
+    disparosZonas[2]++;
   }
   
 }
@@ -175,8 +190,8 @@ void sensor4Presionado()
   }else{
     sirenaOn();
     sensor4DisparadoAlarmaOn=true;
+    disparosZonas[3]++;
   }
-  
 }
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 5
 void sensor5Presionado()
@@ -187,6 +202,7 @@ void sensor5Presionado()
   }else{
     sirenaOn();
     sensor5DisparadoAlarmaOn=true;
+    disparosZonas[4]++;
   }
   
 }
@@ -199,6 +215,7 @@ void sensor6Presionado()
   }else{
     sirenaOn();
     sensor6DisparadoAlarmaOn=true;
+    disparosZonas[5]++;
   }
   
 }
@@ -211,6 +228,7 @@ void sensor7Presionado()
   }else{
     sirenaOn();
     sensor7DisparadoAlarmaOn = true;
+    disparosZonas[6]++;
   }
 }
 // Metodo -> acciones que realiza ESP32 al activarse el sensor 7
@@ -224,7 +242,7 @@ void sensor8Presionado(){
 void sensor8Secuencia()
 {
   sirenaOn();
-  if(alarmaOn)sensor8DisparadoAlarmaOn=true;
+  if(alarmaOn)sensor8DisparadoAlarmaOn=true;disparosZonas[7]++;
 }
 
 // Metodo -> interrupcion del sensor de 24h
@@ -278,7 +296,6 @@ void setupSensores(){
 // Metodo -> inicializa la variable lcd
 void setupLCD(){
   lcd.init();
-  lcd.backlight();
 }
 
 // Meotodo -> inicializa las variables del teclado
@@ -309,7 +326,6 @@ void setupLedsAlarma(){
   digitalWrite(ledAlarmaOff,HIGH);
   digitalWrite(ledAlarmaOn,LOW);
   digitalWrite(ledSirena,LOW);
-
 }
 
 void setup()
@@ -331,6 +347,9 @@ void setup()
 
   //leds Alarma
   setupLedsAlarma();
+
+  lcd.backlight();
+  momentoLuzfondoLCDEncendida=millis();
 }
 
 // Metodo-> realiza una espera activa de un tiempo t para seguir escuchando interrupciones
@@ -342,8 +361,16 @@ void esperaActiva(unsigned long tiempoEspera){
 // Metodo-> devuelve el numero pulsado, en caso contrario devuelve E
 char leerSoloNumeros(){
   char c = teclado.getChar();
+  if (c=='F')
+  {
+    return c;
+  }
+  
   if (c=='N' || c=='F' || c=='*' || c=='#'  || c=='A' || c=='B' || c=='C' || c=='D')
   {
+    luzFondoEncendida = true;
+    lcd.backlight();
+    momentoLuzfondoLCDEncendida=millis();
     return 'E';
   }
   return c;
@@ -444,11 +471,35 @@ void cuentaAtras(String m, unsigned long tiempoReferencia, int segundosRestantes
   }  
 }
 
+// Metodo -> muestra los disparos en las distintas
+void mostrarZonasDisparadas(){
+  imprimirMensajeLCD(" Mostrando disparos ",0,0);
+  imprimirMensajeLCD("  Ultima conexion   ",1,0);
+  lcd.setCursor(9,2);
+  lcd.print("Z");
+  for(int i = 0 ; i < sizeof(disparosZonas)/sizeof(disparosZonas[0]);i++){
+    lcd.setCursor(10,2);
+    lcd.print(i+1);
+    lcd.setCursor(9,3);
+    lcd.print(disparosZonas[i]);
+    esperaActiva(1500);
+  }
+  pantallaInicio();
+}
+
 // Metodo -> Estando la alarma desconectada mira que botones se pulsan y actua en consecuencia
 void revisarBotonesEncendido(){
   char c = teclado.getChar();
+  if (c != 'N')
+  {
+    momentoLuzfondoLCDEncendida=millis();
+    lcd.backlight();
+    luzFondoEncendida = true;
+  }
+  
   if (c=='*')//Alarma activada en AWAY
   {
+    passCorrecta=false;
     cuentaAtras("Alarma en AWAY:",millis(),tiempoCuentaAtrasSalidaSegundos);
     awayOn = true;
     stayOn = false;
@@ -457,6 +508,7 @@ void revisarBotonesEncendido(){
 
   if (c=='#')//Alarma activada en STAY
   {
+    passCorrecta=false;
     cuentaAtras("Alarma en STAY:",millis(),tiempoCuentaAtrasSalidaSegundos);
     awayOn = false;
     stayOn = true;
@@ -465,7 +517,7 @@ void revisarBotonesEncendido(){
 
   if (c=='D')//Mostrar zonas disparadas ultima conexion
   {
-    //Pendiente
+    mostrarZonasDisparadas();
   }
   
   
@@ -673,11 +725,11 @@ void zonasRetardo(){
     }
     if (!passCorrecta)
     {
+      disparosZonas[1]++;
       sirenaOn();
     }
     if (awayOn)imprimirMensajeLCD("     Alarma AWAY     ",0,0);
     if (stayOn)imprimirMensajeLCD("     Alarma STAY     ",0,0);
-    
     
     sensor2DisparadoAlarmaOn = false;
   }
@@ -686,6 +738,16 @@ void zonasRetardo(){
 
 void loop()
 {
+  if (luzFondoEncendida )
+  {
+    if (millis() - momentoLuzfondoLCDEncendida >= tiempoLuzfondoLCD)
+    {
+    lcd.noBacklight();
+    Serial.println("luz de fondo apagada");
+    luzFondoEncendida = false;
+    }
+  }
+  
   if(!alarmaOn)
   {
     leerZonas();
