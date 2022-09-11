@@ -4,6 +4,9 @@
 #include <LiquidCrystal_I2C.h>
 #include "I2CKeyPad.h"
 
+TaskHandle_t strobo;
+TaskHandle_t alarma;
+bool setupFinalizado = false;
 //PANTALLA CRISTAL LIQUIDO
 LiquidCrystal_I2C lcd(0x27,20,4);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
@@ -24,7 +27,8 @@ int columnaAsteriscoPass = 8;
 #define ledAlarmaOn 27
 #define ledAlarmaOff 33
 #define ledSirena 26
-
+#define ledStrobo1 4
+#define ledStrobo2 15
 // Pins a los que los sensores estan conectados.
 #define pinSensor24h 14
 #define pinSensor2 16
@@ -79,10 +83,23 @@ bool mensajeSensor24hDisparado = false;
 bool luzFondoEncendida = false;// Variable que indica si la luz lcd esta encendida o apagada. False si la luz esta apagada
 
 // Variables de tiempo
-unsigned long tiempoCuentaAtrasSalidaSegundos = 5;  // Variable que indica el tiempo para salir del domicilio tras conectar la alarma
 unsigned long tiempoLuzfondoLCD = 10000;  // Variable que indica el tiempo para salir del domicilio tras conectar la alarma
 unsigned long momentoLuzfondoLCDEncendida;  // Variable que indica el tiempo para salir del domicilio tras conectar la alarma
-unsigned long sirenaEncendida = false;              // Variable que indica el momento en el que se encendio la sirena
+unsigned long sirenaEncendida;              // Variable que indica el momento en el que se encendio la sirena
+
+unsigned long antiRebotePass = 350; // tiempo para evitar rebote en teclado numerico
+unsigned long tiempoZonasRetardo = 10; //tiempo para introducir la contraseña
+unsigned long tiempoCuentaAtrasSalidaSegundos = 5;  // Variable que indica el tiempo para salir del domicilio tras conectar la alarma
+
+
+void luzStrobo(){
+  digitalWrite(ledStrobo1,HIGH);
+  digitalWrite(ledStrobo2,LOW);
+  delay(200);
+  digitalWrite(ledStrobo2,HIGH);
+  digitalWrite(ledStrobo1,LOW);
+  delay(200);
+}
 
 // Metodo -> Imprimir mensaje de alarma conectada
 void imprimirMensajeLCD(String m,int fila, int columna){
@@ -328,30 +345,6 @@ void setupLedsAlarma(){
   digitalWrite(ledSirena,LOW);
 }
 
-void setup()
-{
-  // Initialize Serial for debuging purposes.
-  Serial.begin(115200);
-
-  //LCD
-  setupLCD();
-
-  // EASYBUTTON.
-  setupSensores();
-
-  //Keypad
-  setupTeclado();
-
-  //pantalla inicio lcd
-  pantallaInicio();
-
-  //leds Alarma
-  setupLedsAlarma();
-
-  lcd.backlight();
-  momentoLuzfondoLCDEncendida=millis();
-}
-
 // Metodo-> realiza una espera activa de un tiempo t para seguir escuchando interrupciones
 void esperaActiva(unsigned long tiempoEspera){
   unsigned long t = millis();
@@ -442,7 +435,7 @@ void comprobarPass(){
       }
     }
     
-    esperaActiva(200);//para evitar rebote
+    esperaActiva(antiRebotePass);//para evitar rebote
 
   }
 }
@@ -467,6 +460,7 @@ void cuentaAtras(String m, unsigned long tiempoReferencia, int segundosRestantes
   tiempoReferencia = millis();
   while (millis() - tiempoReferencia <= 1000){
     comprobarPass();
+    //luzSrobo();
     if (!passCorrecta)break;
   }  
 }
@@ -626,7 +620,10 @@ void verZonasActivasAlarmaOff(){
   
   if (sensor2.releasedFor(1500) || sensor3.releasedFor(1500) || sensor4.releasedFor(1500) || sensor5.releasedFor(1500) || sensor6.releasedFor(1500) || sensor7.releasedFor(1500) || sensor8.releasedFor(1500))
   {
-    if(sistemaEstabaOk)imprimirMensajeLCD("Fallo en Sistema",0,0);
+    if(sistemaEstabaOk){
+      imprimirMensajeLCD("  Sensores Abiertos ",0,0);
+      imprimirMensajeLCD("  Sistema Bloqueado ",1,0);
+    }
     sistemaEstabaOk=false;
     sistemaOk = false;
   }
@@ -721,7 +718,7 @@ void zonasRetardo(){
   if(sensor2DisparadoAlarmaOn && alarmaOn){
     if (!sirenaDisparada)
     {
-      cuentaAtras("  Cuenta Atras:     ",millis(),10);
+      cuentaAtras("  Cuenta Atras:     ",millis(),tiempoZonasRetardo);
     }
     if (!passCorrecta)
     {
@@ -736,36 +733,121 @@ void zonasRetardo(){
 }
 
 
+
+void setupAlarma(){
+
+  
+  // Initialize Serial for debuging purposes.
+  Serial.begin(115200);
+
+
+
+  //LCD
+  setupLCD();
+
+  // EASYBUTTON.
+  setupSensores();
+
+  //Keypad
+  setupTeclado();
+
+  //pantalla inicio lcd
+  pantallaInicio();
+
+  //leds Alarma
+  setupLedsAlarma();
+
+  lcd.backlight();
+  momentoLuzfondoLCDEncendida=millis();
+  setupFinalizado = true;
+}
+
+void loopAlarma(void *parameter){
+  setupAlarma();
+  for (;;)
+  { // HACEMOS QUE ESTE loopSROBO ARTESANAL SEA INFINITO CON FOR O WHILE
+    if (luzFondoEncendida )
+    {
+      if (millis() - momentoLuzfondoLCDEncendida >= tiempoLuzfondoLCD)
+      {
+      lcd.noBacklight();
+      Serial.println("luz de fondo apagada");
+      luzFondoEncendida = false;
+      }
+    }
+    
+    if(!alarmaOn)
+    {
+      leerZonas();
+      verZonasActivasAlarmaOff();
+      if(sistemaOk){
+        revisarBotonesEncendido();
+        if(!sistemaEstabaOk)pantallaInicio();sistemaEstabaOk=true;
+        
+      }
+    }else{
+      if (sensor24hDisparado && !mensajeSensor24hDisparado){
+        imprimirMensajeLCD("     Alarma AWAY     ",0,0);
+        mensajeSensor24hDisparado = true;
+      }
+      readZonas();
+      verZonasActivasAlarmaOn();
+      if(alarmaOn)zonasRetardo();
+      comprobarPass();
+      apagarSirenaSi();
+    }
+    vTaskDelay(10); // CON ESTO EVITAMOS EL WATCHDOG
+  }
+}
+
+void loopStrobo(void *parameter){
+
+  pinMode(ledStrobo1,OUTPUT);
+  pinMode(ledStrobo2,OUTPUT);
+  digitalWrite(ledStrobo1,LOW);
+  digitalWrite(ledStrobo2,LOW);
+  for(;;){
+
+    luzStrobo();
+    vTaskDelay(10);
+  }
+
+}
+
+
+void setup()
+{
+  //*************************INICIO TAREA STROBO CON NUCLEO 0********************************
+  // INFORMAMOS A ESP32 QUE TENEMOS UNA NUEVA TAREA, LA TAREA1 
+  xTaskCreatePinnedToCore(
+      loopAlarma,                 // FUNCION QUE CONTIENE EL BUCLE INFINITO
+      "Alarma",                   // PONEMOS UN NOMBRE A ESTA FUNCION
+      20000,                       // TAMAÑO DE LA PILA
+      NULL,                       // PARAMETROS QUE QUERAMOS PASAR A ESTA NUEVA TAREA, EN NUESTRO CASO NULO
+      10,                          // PRIORIDAD
+      &alarma,                    // NOMBRE DE LA TAREA CREADA ANTERIORMENTE EN NUESTRO CASO TAREA1
+      0);                         // NUCLEO EN EL QUE QUIERO QUE SE EJECUTE ESTA TAREA
+  //*************************FIN INICIO TAREA STROBO CON NUCLEO 0********************************
+
+  //*************************INICIO TAREA STROBO CON NUCLEO 0********************************
+  // INFORMAMOS A ESP32 QUE TENEMOS UNA NUEVA TAREA, LA TAREA1 
+  xTaskCreatePinnedToCore(
+      loopStrobo,                 // FUNCION QUE CONTIENE EL BUCLE INFINITO
+      "Strobo",                   // PONEMOS UN NOMBRE A ESTA FUNCION
+      1000,                       // TAMAÑO DE LA PILA
+      NULL,                       // PARAMETROS QUE QUERAMOS PASAR A ESTA NUEVA TAREA, EN NUESTRO CASO NULO
+      5,                          // PRIORIDAD
+      &strobo,                    // NOMBRE DE LA TAREA CREADA ANTERIORMENTE EN NUESTRO CASO TAREA1
+      0);                         // NUCLEO EN EL QUE QUIERO QUE SE EJECUTE ESTA TAREA
+  //*************************FIN INICIO TAREA STROBO CON NUCLEO 0********************************
+
+
+
+}
+
+
+
 void loop()
 {
-  if (luzFondoEncendida )
-  {
-    if (millis() - momentoLuzfondoLCDEncendida >= tiempoLuzfondoLCD)
-    {
-    lcd.noBacklight();
-    Serial.println("luz de fondo apagada");
-    luzFondoEncendida = false;
-    }
-  }
-  
-  if(!alarmaOn)
-  {
-    leerZonas();
-    verZonasActivasAlarmaOff();
-    if(sistemaOk){
-      revisarBotonesEncendido();
-      if(!sistemaEstabaOk)pantallaInicio();sistemaEstabaOk=true;
-      
-    }
-  }else{
-    if (sensor24hDisparado && !mensajeSensor24hDisparado){
-      imprimirMensajeLCD("     Alarma AWAY     ",0,0);
-      mensajeSensor24hDisparado = true;
-    }
-    readZonas();
-    verZonasActivasAlarmaOn();
-    if(alarmaOn)zonasRetardo();
-    comprobarPass();
-    apagarSirenaSi();
-  }
+  vTaskDelay(portMAX_DELAY);
 }
